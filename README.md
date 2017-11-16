@@ -26,4 +26,20 @@ Rscript hESC_cluster_analysis.R [counts_matrix].tsv [genotype_dictionary].csv [o
 ##  Offline analysis
 The higher level analyses (gene modules, etc.) and the dropout analyses are relatively quick and are best if used with RStudio: https://www.rstudio.com/. 
 
-### Summarizing differential expression and clustering.
+### Summarizing differential expression and clustering, and trimming genotypes. Run this section first.
+The first section of the script `hESC_offline_analysis.R`. Run this section before you run any other analyses. Change the parameter `file.handle` to the name of the sample to be analyzed. After running the trimming genotypes code, rerun the regression analysis with the trimmed genotypes dictionaries. This section will generate a summary table for each sample, as well as differential expression heatmaps, cluster enrichment heatmaps, and tSNE plots.
+
+### Dropout Analyses
+All of the dropout analyses in `hESC_dropout_analysis.R` can be run after generating the summary tables for each sample. This script will generate heatmaps showing fitness change across all three media conditions as calculated from genomic DNA reads, and from scRNA-seq cell counts. It will also generate scatterplots showing the correlation between genomic DNA fitness and scRNA-seq cell counts fitness, and scatterplots showing correlation between genomic DNA fitness and the number of significantly differentially expressed genes for each transcription factor.
+
+### Co-perturbation network and gene module analysis
+The code in `hESC_coperturbation_network.R` generates and clusters the gene-gene co-perturbation network. It can be run after generating the summary tables for each of the media condition samples.
+
+### Remaining offline analyses
+Each of these remaining analyses is a section of the script `hESC_offline_analysis.R`.
+
+* Orthologous mouse TF enrichment. Compares the differentially expressed genes from our screen to the screen performed by Nishiyama et al (https://www.ncbi.nlm.nih.gov/pubmed/19796622) by mapping mouse genes to human orthologs and running a GSEA enrichment.
+* Epithelial mesenchymal transition (EMT) analysis. Runs PCA on known EMT genes and creates a PCA plot showing the separation of KLF4 and SNAI2 cells. Also generates a barplot showing the up/downregulation of canonical EMT markers for KLF4 and SNAI2.
+* Generating a stacked barplot summarizing differential expression results across the three media conditions
+* Batch sample correlation. Correlates multiple independent screens to demonstrate reproducibility. There are 5 different screens for the hPSC media condition, 1 screen for endothelial media, and 2 screens for multilineage media.
+* Code to analyze KLF/MYC screens
