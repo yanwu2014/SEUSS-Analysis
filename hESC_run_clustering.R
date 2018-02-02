@@ -1,6 +1,6 @@
 library(methods)
 library(Seurat)
-source("hESC_functions.R")
+library(perturbLM)
 
 options <- commandArgs(trailingOnly = T)
 
@@ -29,8 +29,8 @@ acc.cutoff <- 0.9 ## Minimum classification accuracy to keep clusters separate
 ntc <- "mCherry" ## Name of negative control genotype
 
 # Load the dataset, filter and trim counts matrix
-counts <- read.data(matrix.file)
-counts <- filter.data(counts, min.cells.frac = min.cells.frac, trim = trim, min.genes = min.genes.exp, min.expr = 0)
+counts <- ReadData(matrix.file)
+counts <- FilterData(counts, min.cells.frac = min.cells.frac, trim = trim, min.genes = min.genes.exp, min.expr = 0)
 
 # Check for batch effects
 if (regress.batch) {
@@ -56,12 +56,12 @@ pd$percent.mt <- percent.mt
 counts <- counts[!rownames(counts) %in% mito.genes,]
 
 # Load genotypes
-genotypes.list <- read.genotypes(genotypes.file)
+genotypes.list <- ReadGenotypes(genotypes.file)
 genotypes.list <- lapply(genotypes.list, function(cells) cells[cells %in% colnames(counts)])
 genotypes.list <- genotypes.list[sapply(genotypes.list, length) > 0]
 
-guides.df <- as.matrix(design.matrix.genotypes(genotypes.list, max.guides = 3, min.cells = 25))
-guides.df <- pad.design.matrix(guides.df, colnames(counts))
+guides.df <- as.matrix(DesignMatrixGenotypes(genotypes.list, max.genotypes = 3, min.cells = 25))
+guides.df <- PadDesignMatrix(guides.df, colnames(counts))
 guides.df <- data.frame(apply(guides.df, 2, function(x) factor(x)))
 pd <- cbind(pd, guides.df)
 
@@ -101,12 +101,11 @@ se.obj <- FindClusters(se.obj, reduction.type = "pca", dims.use = 1:pcs.use, res
 rm(counts)
 se.obj@raw.data <- NULL
 
-conn <- CalcConnectivity(se.obj)
+conn <- Seurat:::CalcConnectivity(se.obj)
 print(sum(conn > min.conn))
 
 se.obj <- ValidateClusters(se.obj, pc.use = 1:pcs.use, top.genes = 15, min.connectivity = min.conn, acc.cutoff = acc.cutoff, verbose = T)
 se.obj <- BuildClusterTree(se.obj, do.reorder = T, reorder.numeric = T)
-conn <- CalcConnectivity(se.obj)
 
 print("Done with clustering")
 save.image(output.file)
@@ -128,11 +127,10 @@ clusters <- sapply(as.character(se.obj@ident), function(i) paste("C", i , sep = 
 names(clusters) <- se.obj@cell.names
 
 genotypes.list <- lapply(genotypes.list, function(x) x[x %in% se.obj@cell.names])
-clusters.list <- unflatten.cell.genotypes(clusters)
+clusters.list <- UnflattenCellGenotypes(clusters)
 
-df <- genotype.cluster.counts(genotypes.list, clusters.list)
-df.pvals <- genotype.cluster.pvals(df)
-
+df <- GenotypeClusterCounts(genotypes.list, clusters.list)
+df.pvals <- GenotypeClusterPvals(df)
 
 print("Done with genotype enrichment")
 save.image(output.file)
