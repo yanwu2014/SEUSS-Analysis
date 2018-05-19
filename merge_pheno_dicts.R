@@ -1,5 +1,5 @@
 library(methods)
-source("utility_functions.R")
+library(perturbLM)
 
 # Dataset names specified via command line
 options <- commandArgs(trailingOnly = T)
@@ -8,7 +8,7 @@ input.files <- options[2:length(options)]
 
 # Load genotype dictionaries
 pheno.dicts <- lapply(1:length(input.files), function(i) {
-  genotypes.list <- read.genotypes(input.files[[i]])
+  genotypes.list <- ReadGenotypes(input.files[[i]])
   lapply(genotypes.list, function(cells) paste(cells, i, sep = "-"))
 })
 
@@ -30,4 +30,4 @@ for (dict in pheno.dicts) {
 print(sapply(merged.dict, length))
 print(sum(sapply(merged.dict, length)))
 
-write.genotypes(merged.dict, output.name)
+WriteGenotypes(merged.dict, output.name)

@@ -1,5 +1,4 @@
 #### Split KLF family + MYC mutants counts matrix ####
-
 library(Seurat)
 library(perturbLM)
 
@@ -31,7 +30,9 @@ dim(myc.counts)
 # write.table(myc.counts, file = "up-tf-myc.counts.tsv", sep = "\t")
 
 
-#### MYC/KLF Screen analysis ####
+#### MYC/KLF Gene Module analysis ####
+library(perturbLM)
+library(swne)
 
 ## Load data
 coefs.df.myc <- read.table("up-tf-myc_regression.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
@@ -44,32 +45,29 @@ top.hits.klf <- subset(coefs.df.klf, FDR < 0.05 & abs(cf) > 0.01)
 
 ## TF effects on gene modules
 coefs.matrix.myc <- UnflattenDataframe(coefs.df.myc, "cf")
-coefs.matrix.myc <- coefs.matrix.myc[apply(coefs.matrix.myc, 1, function(x) any(abs(x) > 0.025)),]
-
 coefs.matrix.klf <- UnflattenDataframe(coefs.df.klf, "cf")
-coefs.matrix.klf <- coefs.matrix.klf[apply(coefs.matrix.klf, 1, function(x) any(abs(x) > 0.025)),]
 
-gene_module_mapping <- read.table("up-tf_gene_module_mapping.txt", sep = "\t", header = T)
-gene_modules <- gene_module_mapping$Description; names(gene_modules) <- gene_module_mapping$Module;
-gene_clusters_list <- LoadGenesets("up-tf_functional_gene_modules.gmt")
+gene.module.mapping <- read.table("up-tf_module_names.txt", sep = "\t", header = T)
+colnames(gene.module.mapping) <- c("Module", "Description")
+gene.modules.list <- LoadGenesets("up-tf_gene_modules.gmt")
 
-tf.modules.matrix.myc <- CalcGeneModuleEffect(coefs.matrix.myc, gene_clusters_list, 
-                                                  gene_module_mapping, min.coef = 0.025)
-tf.modules.matrix.klf <- CalcGeneModuleEffect(coefs.matrix.klf, gene_clusters_list, 
-                                                  gene_module_mapping, min.coef = 0.025)
+tf.modules.matrix.myc <- CalcGeneModuleEffect(coefs.matrix.myc, gene.modules.list, 
+                                              gene.module.mapping, min.coef = 0.025)
+tf.modules.matrix.klf <- CalcGeneModuleEffect(coefs.matrix.klf, gene.modules.list, 
+                                              gene.module.mapping, min.coef = 0.025)
 
-# Normalize to mCherry
-# pdf("myc-mutants_gene_module_effects_norm.pdf", width = 8.0, height = 3.75)
-ggheat(tf.modules.matrix.myc, clustering = "both", x.lab.size = 12, y.lab.size = 12)
-# dev.off()
+pdf("up-tf-myc_gene_module_effects.pdf", width = 7.25, height = 4.0)
+ggHeat(tf.modules.matrix.myc, clustering = "both", x.lab.size = 12, y.lab.size = 12)
+dev.off()
 
-# pdf("klf-family_gene_module_effects_norm.pdf", width = 8.0, height = 3.75)
-ggheat(tf.modules.matrix.klf, clustering = "both", x.lab.size = 12, y.lab.size = 12)
-# dev.off()
+pdf("up-tf-klf_gene_module_effects.pdf", width = 7.25, height = 4.0)
+ggHeat(tf.modules.matrix.klf, clustering = "both", x.lab.size = 12, y.lab.size = 12)
+dev.off()
 
+#### Correlate MYC and KLF4 with hPSC media screen
 
 ## Load hPSC media screen results
-coefs.df.stem <- read.table("up-tf-all_regression_trimmed.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
+coefs.df.stem <- read.table("up-tf-stem_regression.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
 
 ## Correlate MYC between myc mutant screen and hPSC media screen
 TF <- "MYC"
@@ -81,10 +79,10 @@ cfs.myc <- g.coefs.df.myc$cf
 names(cfs.myc) <- g.coefs.df.myc$Gene
 genes.use <- intersect(names(cfs), names(cfs.myc))
 
-# pdf("MYC_hPSC_myc-mutants_correlation.pdf", width = 4.5, height = 4)
-ggcorrelation(cfs[genes.use], cfs.myc[genes.use], x.lab = "hPSC screen", y.lab = "MYC mutants", title = TF, 
-              use.label = F, box = T, show.corr = T)
-# dev.off()
+pdf("up-tf-myc_hPSC-myc_correlation.pdf", width = 4.5, height = 4)
+PlotCorrelation(cfs[genes.use], cfs.myc[genes.use], x.lab = "hPSC screen", y.lab = "MYC mutants", title = TF, 
+                use.label = F, box = T, show.corr = T)
+dev.off()
 
 ## Correlate KLF4 between KLF family screen and hPSC media screen
 TF <- "KLF4"
@@ -96,7 +94,7 @@ cfs.klf <- g.coefs.df.klf$cf
 names(cfs.klf) <- g.coefs.df.klf$Gene
 genes.use <- intersect(names(cfs), names(cfs.klf))
 
-# pdf("KLF4_hPSC_klf_family_correlation.pdf", width = 4.5, height = 4)
-ggcorrelation(cfs[genes.use], cfs.klf[genes.use], x.lab = "hPSC screen", y.lab = "klf mutants", title = TF, 
-              use.label = F, box = T, show.corr = T)
-# dev.off()
+pdf("up-tf-klf_hPSC-klf_correlation.pdf", width = 4.5, height = 4)
+PlotCorrelation(cfs[genes.use], cfs.klf[genes.use], x.lab = "hPSC screen", y.lab = "klf mutants", title = TF, 
+                use.label = F, box = T, show.corr = T)
+dev.off()
