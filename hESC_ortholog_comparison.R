@@ -1,15 +1,17 @@
 #### Orthologous mouse TF enrichment in hPSC media. Generates Figure S3d
 library(perturbLM)
 library(swne)
+library(cellMapper)
 
 ## Load regression results in stem cell media
 coefs.df <- read.table("up-tf-stem_regression.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
+genotype.summary <- read.table("up-tf-stem_summary.tsv", header = T, sep = "\t", stringsAsFactors = F)
 
 min.cl.pval <- 1e-12
-min.diff.genes <- 50
-genotype.summary <- read.table("up-tf-stem_summary.tsv", header = T, sep = "\t", stringsAsFactors = F)
-sig.genotypes <- rownames(subset(genotype.summary, abs(min_cluster_pval) < min.cl.pval | n_diff_genes >= min.diff.genes))
-sig.genotypes <- sort(unique(c(sig.genotypes, "mCherry-int-ctrl")))
+min.diff.genes <- 40
+ctrl.cl.stem <- genotype.summary["mCherry", "min_cluster"]
+sig.genotypes <- rownames(subset(genotype.summary, (abs(min_cluster_pval) < min.cl.pval & min_cluster != ctrl.cl.stem) 
+                                 | n_diff_genes >= min.diff.genes))
 
 ## Create mouse TF targets genesets
 mouse.targets.df <- read.table("mouse_tf_targets.txt", sep = "\t", header = T, stringsAsFactors = F)
@@ -24,7 +26,7 @@ mouse.genesets <- lapply(unique(mouse.targets.df$TF), function(tf) subset(mouse.
 names(mouse.genesets) <- sapply(unique(mouse.targets.df$TF), toupper)
 
 all.mouse.genes <- unique(unlist(mouse.genesets, F, F))
-mouse2human <- MouseHumanMapping(all.mouse.genes, "Reference_Data/mouse_human_gene_mapping.txt")
+mouse2human <- MouseHumanMapping(all.mouse.genes)
 
 human.genesets <- lapply(mouse.genesets, function(mousex) {
   mousex <- intersect(mousex, names(mouse2human))
@@ -35,7 +37,7 @@ print(sapply(human.genesets, length))
 
 
 ## GSEA enrichment for mouse ortholog genesets
-n.cores <- 16
+n.cores <- 24
 
 coefs.list <- lapply(sig.genotypes, function(g) {
   df <- subset(coefs.df, Group == g)
@@ -44,15 +46,15 @@ coefs.list <- lapply(sig.genotypes, function(g) {
 })
 names(coefs.list) <- sig.genotypes;
 
-genesets.enrich <- MultipleGSEAEnrich(coefs.list, human.genesets, n.rand = 20000, n.cores = n.cores, power = 1)
-genesets.enrich <- read.table("up-tf-stem_bulk_ortho_gsea_enrich.tsv", sep = "\t", header = T)
+genesets.enrich <- MultipleGSEAEnrich(coefs.list, human.genesets, n.rand = 50000, n.cores = n.cores, power = 1)
+# genesets.enrich <- read.table("up-tf-stem_bulk_ortho_gsea_enrich.tsv", sep = "\t", header = T)
 
 heat.df <- genesets.enrich
 heat.df$lp <- mapply(function(p, cf) -log(p) * sign(cf), heat.df$p.val, heat.df$sscore)
 heat.lp <- UnflattenDataframe(heat.df, output.name = "lp", row.col = 'genesets', col.col = 'Group')
 heat.lp[is.na(heat.lp)] <- 0
 
-pdf("up-tf-stem_bulk_ortho_gsea_enrich.pdf", width = 7.5, height = 3.25)
+pdf("up-tf-stem_bulk_ortho_gsea_enrich.pdf", width = 5.5, height = 2.75)
 ggHeat(heat.lp, clustering = "col", x.lab.size = 12, y.lab.size = 12)
 dev.off()
 

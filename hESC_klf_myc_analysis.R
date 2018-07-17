@@ -30,71 +30,69 @@ dim(myc.counts)
 # write.table(myc.counts, file = "up-tf-myc.counts.tsv", sep = "\t")
 
 
-#### MYC/KLF Gene Module analysis ####
+#### MYC/KLF Differential Expr & Gene Module analysis ####
 library(perturbLM)
 library(swne)
 
-## Load data
-coefs.df.myc <- read.table("up-tf-myc_regression.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
-coefs.df.myc <- subset(coefs.df.myc, Group != "metadata")
-top.hits.myc <- subset(coefs.df.myc, FDR < 0.05 & abs(cf) > 0.01)
+# file.handle <- "up-tf-klf"
+file.handle <- "up-tf-myc"
 
-coefs.df.klf <- read.table("up-tf-klf_regression.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
-coefs.df.klf <- subset(coefs.df.klf, Group != "metadata")
-top.hits.klf <- subset(coefs.df.klf, FDR < 0.05 & abs(cf) > 0.01)
+## Load data
+coefs.df <- read.table(paste(file.handle, "regression.pvals.tsv", sep = "_"), sep = "\t", header = T, 
+                           stringsAsFactors = F)
+genotype.summary <- read.table(paste(file.handle, "summary.tsv", sep = "_"), sep = "\t", header = T, row.names = 1)
+
+## Diff exp barplot
+diff.genes <- genotype.summary$n_diff_genes
+names(diff.genes) <- rownames(genotype.summary)
+
+gg.bar <- ggBarplot(diff.genes, fill.color = "lightgrey")
+# pdf(paste(file.handle, "diff_genes_barplot.pdf", sep = "_"), width = 5.25, height = 3.5)
+gg.bar
+# dev.off()
 
 ## TF effects on gene modules
-coefs.matrix.myc <- UnflattenDataframe(coefs.df.myc, "cf")
-coefs.matrix.klf <- UnflattenDataframe(coefs.df.klf, "cf")
-
 gene.module.mapping <- read.table("up-tf_module_names.txt", sep = "\t", header = T)
 colnames(gene.module.mapping) <- c("Module", "Description")
+# gene.module.mapping <- NULL
 gene.modules.list <- LoadGenesets("up-tf_gene_modules.gmt")
 
-tf.modules.matrix.myc <- CalcGeneModuleEffect(coefs.matrix.myc, gene.modules.list, 
-                                              gene.module.mapping, min.coef = 0.025)
-tf.modules.matrix.klf <- CalcGeneModuleEffect(coefs.matrix.klf, gene.modules.list, 
-                                              gene.module.mapping, min.coef = 0.025)
+coefs.matrix <- UnflattenDataframe(coefs.df, "cf")
+tf.modules.matrix <- CalcGeneModuleEffect(coefs.matrix, gene.modules.list, 
+                                          gene.module.mapping, min.coef = 0.01)
+tf.modules.matrix <- tf.modules.matrix[apply(abs(tf.modules.matrix), 1, max) > 0.01,]
+tf.modules.matrix <- tf.modules.matrix[,names(diff.genes)]
 
-pdf("up-tf-myc_gene_module_effects.pdf", width = 7.25, height = 4.0)
-ggHeat(tf.modules.matrix.myc, clustering = "both", x.lab.size = 12, y.lab.size = 12)
+rownames(tf.modules.matrix) <- colnames(tf.modules.matrix) <- NULL
+gg.heat <- ggHeat(tf.modules.matrix, clustering = "row", x.lab.size = 12, y.lab.size = 12)
+# pdf(paste(file.handle, "gene_module_effects.pdf", sep = "_"), width = 6.5, height = 3)
+gg.heat
+# dev.off()
+
+library(grid)
+library(gridExtra)
+library(ggplot2)
+
+gg.bar <- gg.bar + theme(axis.text = element_blank())
+gg.heat <- gg.heat + theme(legend.position = "none")
+
+pdf(paste(file.handle, "stacked_barplot_heatmap_nolabels.pdf", sep = "_"), width = 6.0, height = 5)
+grid.arrange(gg.bar, gg.heat, ncol = 1)
 dev.off()
 
-pdf("up-tf-klf_gene_module_effects.pdf", width = 7.25, height = 4.0)
-ggHeat(tf.modules.matrix.klf, clustering = "both", x.lab.size = 12, y.lab.size = 12)
+
+#### Endogenous MYC expression analysis ####
+library(swne)
+
+myc.counts <- ReadData("up-tf-myc.counts.tsv")
+myc.counts <- FilterData(myc.counts, min.samples.frac = 0.001, trim = 0.01, min.nonzero.features = 0)
+myc.counts <- ScaleCounts(myc.counts)
+
+myc.expr <- c(myc.counts["MYC",], myc.counts["MYCL",], myc.counts["MYCN",])
+gene.factor <- c(rep("MYC", ncol(myc.counts)), rep("MYCL", ncol(myc.counts)), rep("MYCN", ncol(myc.counts)))
+myc.expr.df <- data.frame(Expr = myc.expr, Gene = factor(gene.factor))
+
+pdf("MYC_endogenous_expression.pdf", width = 4.5, height = 3.5)
+ggplot(myc.expr.df, aes(Gene, Expr)) + geom_violin(aes(fill = Gene))
 dev.off()
 
-#### Correlate MYC and KLF4 with hPSC media screen
-
-## Load hPSC media screen results
-coefs.df.stem <- read.table("up-tf-stem_regression.pvals.tsv", sep = "\t", header = T, stringsAsFactors = F)
-
-## Correlate MYC between myc mutant screen and hPSC media screen
-TF <- "MYC"
-g.coefs.df <- subset(coefs.df.stem, Group == TF)
-g.coefs.df.myc <- subset(coefs.df.myc, Group == TF)
-
-cfs <- g.coefs.df$cf; names(cfs) <- g.coefs.df$Gene;
-cfs.myc <- g.coefs.df.myc$cf
-names(cfs.myc) <- g.coefs.df.myc$Gene
-genes.use <- intersect(names(cfs), names(cfs.myc))
-
-pdf("up-tf-myc_hPSC-myc_correlation.pdf", width = 4.5, height = 4)
-PlotCorrelation(cfs[genes.use], cfs.myc[genes.use], x.lab = "hPSC screen", y.lab = "MYC mutants", title = TF, 
-                use.label = F, box = T, show.corr = T)
-dev.off()
-
-## Correlate KLF4 between KLF family screen and hPSC media screen
-TF <- "KLF4"
-g.coefs.df <- subset(coefs.df.stem, Group == TF)
-g.coefs.df.klf <- subset(coefs.df.klf, Group == TF)
-
-cfs <- g.coefs.df$cf; names(cfs) <- g.coefs.df$Gene;
-cfs.klf <- g.coefs.df.klf$cf
-names(cfs.klf) <- g.coefs.df.klf$Gene
-genes.use <- intersect(names(cfs), names(cfs.klf))
-
-pdf("up-tf-klf_hPSC-klf_correlation.pdf", width = 4.5, height = 4)
-PlotCorrelation(cfs[genes.use], cfs.klf[genes.use], x.lab = "hPSC screen", y.lab = "klf mutants", title = TF, 
-                use.label = F, box = T, show.corr = T)
-dev.off()

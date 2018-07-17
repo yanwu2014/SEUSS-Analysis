@@ -1,58 +1,88 @@
 library(methods)
-library(pagoda2)
+library(Seurat)
 library(swne)
-library(perturbLM)
 
 options <- commandArgs(trailingOnly = T)
 
-## Command line parameters
+## Command line parameters (can hardcode in script if desired)
 matrix.file <- options[[1]] ## Input counts matrix (either in tab separated format or 10X genomics sparse format)
-genotypes.file <- options[[2]] ## Genotype dictionary as a ".csv" file
-output.p2.file <- options[[3]] ## Output Robj file
-regress.batch <- as.logical(options[[4]]) ## Whether to run batch regression
+output.file <- options[[2]] ## Output RData file
+regress.batch <- as.logical(options[[3]]) ## Whether to run batch regression
 
+## Other parameters
 min.cells.frac <- 0.01 ## Fraction of cells expressing gene in order to include
-min.genes.exp <- 200 ## Minimum number of expressed genes for a cell
-trim <- 0.0025 ## Trim fraction
-n.cores <- 8 ## Number of cores
+min.genes.exp <- 300 ## Minimum number of expressed genes for a cell
+trim <- 0.005 ## Trim fraction
 
-# Load the dataset, filter and trim counts matrix
+regress.model <- "negbinom" ## Model for regressing out unwanted effects
+min.expr <- 0.1 ## Minimum average expression for variable genes
+min.var.z <- 0.5 ## Minimum Z-score for variable genes
+
+pcs.use <- 30 ## Number of PCs to use for clustering
+cluster.res <- 1.8 ## Cluster resolution
+min.conn <- 1e-4 ## Minimum SNN connectivity between clusters to calculate accuracy
+acc.cutoff <- 0.95 ## Minimum classification accuracy to keep clusters separate
+
+## Load the dataset, filter and trim counts matrix
 counts <- ReadData(matrix.file)
+counts <- FilterData(counts, min.cells.frac,trim, min.genes.exp)
+nUMI <- Matrix::colSums(counts)
 
-# Load genotypes
-genotypes.list <- ReadGenotypes(genotypes.file)
-genotypes.list <- lapply(genotypes.list, function(cells) cells[cells %in% colnames(counts)])
-genotypes.list <- genotypes.list[sapply(genotypes.list, length) > 0]
-
-## Filter counts
-counts <- counts[,colnames(counts) %in% unlist(genotypes.list, F, F)]
-counts <- FilterData(counts, min.cells.frac, trim, min.genes.exp)
-print(dim(counts))
-
-# Check for batch effects
+## Check for batch effects
 if (regress.batch) {
   batch <- factor(sapply(colnames(counts), function(x) strsplit(x, split = "\\.")[[1]][[2]]))
+  pd <- data.frame(nUMI, batch)
 } else {
-  batch <- NULL
+  pd <- data.frame(nUMI)
 }
 
-## Create pagoda2 object
-rownames(counts) <- make.unique(rownames(counts))
-r <- Pagoda2$new(counts, batch = batch, log.scale = T, n.cores = n.cores)
+## Mitochondrial fraction
+mito.genes <- grep("^MT-", rownames(counts), value = T)
+pd$percent.mt <- Matrix::colSums(counts[mito.genes, ])/Matrix::colSums(counts)
+counts <- counts[!rownames(counts) %in% mito.genes,]
 
-## Adjust variance, calculate PCA
-r$adjustVariance(plot = T, gam.k = 10)
-r$calculatePcaReduction(nPcs = 50, n.odgenes = 3e3)
+## Run clustering pipeline via Seurat
+se.obj <- CreateSeuratObject(raw.data = counts, project = "10x", normalization.method = "LogNormalize",
+                             scale.factor = median(nUMI), meta.data = pd)
+dim(se.obj@data)
 
-## kNN clustering
-r$makeKnnGraph(k = 50, type='PCA', center = T, distance = 'cosine')
-r$getKnnClusters(method = multilevel.community, type = 'PCA', name = "multilevel")
+## Find overdispersed genes for PCA
+se.obj <- FindVariableGenes(se.obj, x.low.cutoff = min.expr, x.high.cutoff = 8,
+                            y.cutoff = min.var.z, y.high.cutoff = Inf, do.plot = T)
+length(se.obj@var.genes)
 
-## tSNE
-r$getEmbedding(type = 'PCA', embeddingType = 'tSNE', perplexity = 50, verbose = F)
+## Regress out confounders
+print(paste("Regress out batch effects:", regress.batch))
+if (regress.batch) {
+  se.obj <- ScaleData(se.obj, vars.to.regress = c("nUMI", "percent.mt", "batch"), model.use = regress.model,
+                      scale.max = 10, genes.use = se.obj@var.genes)
+} else {
+  se.obj <- ScaleData(se.obj, vars.to.regress = c("nUMI", "percent.mt"), model.use = regress.model,
+                      scale.max = 10, genes.use = se.obj@var.genes)
+}
 
-## Differential expression
-r$getDifferentialGenes(type = 'PCA', verbose = T, clusterType = 'multilevel')
+print("Done scaling data")
+save.image(output.file)
 
-## Save output
-saveRDS(r, file = output.p2.file)
+## Run PCA and clustering
+se.obj <- RunPCA(se.obj, pc.genes = se.obj@var.genes, pcs.compute = 40, do.print = F)
+se.obj <- FindClusters(se.obj, dims.use = 1:pcs.use, resolution = cluster.res,
+                       k.param = 30, save.SNN = T, prune.SNN = 1/20, print.output = F)
+
+## Validate clustering
+conn <- Seurat:::CalcConnectivity(se.obj)
+print(sum(conn > min.conn))
+
+se.obj <- ValidateClusters(se.obj, pc.use = 1:pcs.use, top.genes = 15, min.connectivity = min.conn, 
+                           acc.cutoff = acc.cutoff, verbose = T)
+se.obj <- BuildClusterTree(se.obj, do.reorder = T, reorder.numeric = T)
+
+se.obj <- RunTSNE(se.obj, dims.use = 1:pcs.use)
+TSNEPlot(se.obj)
+if (regress.batch) {
+  TSNEPlot(se.obj, group.by = "batch")
+}
+
+print("Done with clustering")
+save.image(output.file)
+saveRDS(se.obj, file = gsub(".RData", ".Robj", output.file))

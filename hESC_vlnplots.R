@@ -1,10 +1,11 @@
 library(perturbLM)
 library(pagoda2)
-library(ggplot2)
 library(swne)
 
 ## Sample to analyze
 file.handle <- "up-tf-stem"
+# file.handle <- "up-tf-endo"
+# file.handle <- "up-tf-multi"
 
 ## Load pagoda2 object
 r <- readRDS(paste(file.handle, "clustering_p2.Robj", sep = "_"))
@@ -36,12 +37,12 @@ modules.names.df <- read.table("up-tf_module_names.txt", sep = "\t", header = T)
 modules.names <- modules.names.df$Annotation; names(modules.names) <- modules.names.df$Module;
 names(gene.modules.list) <- modules.names[names(gene.modules.list)]
 
-genotype <- "CDX2"
-module <- "Cell Proliferation"
+genotype <- "NEUROD1"
+module <- "Neuron Development"
 genotype.module.coefs <- subset(top.pos.coefs.df, Group == genotype & Gene %in% gene.modules.list[[module]])
-head(genotype.module.coefs, n = 10)
+head(genotype.module.coefs, n = 30)
 
-gene <- "KRT8"
+gene <- "DRAXIN"
 
 pdf(paste(file.handle, gene, "vlnplot.pdf", sep = "_"), width = 7.5, height = 3.5)
 PlotViolin(gene, norm.counts[gene,], factor(genotypes), x.lab.rot = T, y.log = F, x.title = "Genotype",

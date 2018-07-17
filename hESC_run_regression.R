@@ -19,12 +19,12 @@ nlambda <- 10 ## Number of shrinkage parameters to cross validate
 lambda.min.ratio <- 1e-8 ## Minimum shrinkage parameter
 use.quantiles <- T ## Use quantiles when calculating coefficient p-values
 output.name <- 'cf' ## Name of the output variable
-min.regress.cells <- 15 ## Minimum number of cells to test for marker genes
+min.regress.cells <- 20 ## Minimum number of cells to test for marker genes
 max.guides <- 2 ## Max number of guides detected per cell
-n.rand <- 320 ## Number of permutations
-n.cores <- 16 ## Number of cores
+n.rand <- 480 ## Number of permutations
+n.cores <- 24 ## Number of cores
 min.cells.frac <- 0.01 ## Minimum fraction of cells a gene must be detected in
-min.genes.exp <- 200 ## Minimum number of genes a cell must express
+min.genes.exp <- 150 ## Minimum number of genes a cell must express
 trim <- 0.001 ## Fraction of cells to trim
 n.bins <- 20 ## Number of bins to use for calculating p-values
 drop.cells <- T
@@ -62,7 +62,7 @@ if (regress.batch) {
 }
 
 ## Build design matrix
-guides.matrix <- DesignMatrixGenotypes(genotypes.list, max.guides, min.cells = 5, drop.cells = drop.cells)
+guides.matrix <- DesignMatrixGenotypes(genotypes.list, max.guides, min.cells = 1, drop.cells = drop.cells)
 guides.matrix <- CleanDesignCtrl(guides.matrix, ctrl = ctrl)
 
 n_cells <- Matrix::colSums(guides.matrix)
@@ -82,7 +82,7 @@ print(dim(log.counts)); rm(counts);
 cv.fit <- cv.glmnet(Matrix(cbind(as.matrix(covs.df), guides.matrix)), as.matrix(log.counts), family = "mgaussian",
                     alpha = alpha, nlambda = nlambda, nfolds = nfolds, standardize = F,
                     lambda.min.ratio = lambda.min.ratio)
-lambda.use <- cv.fit$lambda.min
+lambda.use <- cv.fit$lambda.min; print(lambda.use);
 save.image(output.file);
 
 pt <- proc.time()
