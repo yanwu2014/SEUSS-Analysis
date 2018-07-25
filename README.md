@@ -51,6 +51,3 @@ Run `hESC_dataset_correlation.R` to correlate different screens and demonstrate 
 
 ### MYC mutant & KLF family analysis
 Run `hESC_klf_myc_analysis.R` to analyze the KLF family and MYC mutant screens.
-
-### Highmoi screen analysis
-Run `hESC_neuron_highmoi_analysis.R` to analyze the neuronal TF highmoi screen.
