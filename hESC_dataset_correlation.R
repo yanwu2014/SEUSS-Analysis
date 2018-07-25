@@ -69,18 +69,18 @@ dev.off()
 
 
 
-#### Correlate Neuronal Screen batches ####
+#### Correlate Hygro and NoHygro vectors to determine reproducibility with shuffling ####
 library(perturbLM)
 library(swne)
 
-neuron.coefs.df.1 <- read.table("up-tf-neuron-original_regression.pvals.tsv", 
-                                sep = "\t", stringsAsFactors = F)
+sample.1 <- "up-tf-neuron-hygro_regression.pvals.tsv"
+neuron.coefs.df.1 <- read.table(sample.1, sep = "\t", stringsAsFactors = F)
 neuron.coefs.df.1 <- subset(neuron.coefs.df.1, !grepl(":", Group))
 neuron.cfs.1 <- neuron.coefs.df.1$cf
 rownames(neuron.coefs.df.1) <- names(neuron.cfs.1) <- interaction(neuron.coefs.df.1$Gene, neuron.coefs.df.1$Group, sep = "_")
 
-neuron.coefs.df.2 <- read.table("up-tf-neuron-nohygro_regression.pvals.tsv", 
-                                sep = "\t", stringsAsFactors = F)
+sample.2 <- "up-tf-neuron-nohygro_regression.pvals.tsv"
+neuron.coefs.df.2 <- read.table(sample.2, sep = "\t", stringsAsFactors = F)
 neuron.coefs.df.2 <- subset(neuron.coefs.df.2, !grepl(":", Group))
 neuron.cfs.2 <- neuron.coefs.df.2$cf
 rownames(neuron.coefs.df.2) <- names(neuron.cfs.2) <- interaction(neuron.coefs.df.2$Gene, neuron.coefs.df.2$Group, sep = "_")
@@ -91,6 +91,6 @@ neuron.sig.idx <- union(rownames(subset(neuron.coefs.df.1, FDR < max.fdr)),
                         rownames(subset(neuron.coefs.df.2, FDR < max.fdr)))
 neuron.hits.idx <- intersect(neuron.common.idx, neuron.sig.idx)
 
-pdf("neuron_shuffling_single_TF_correlation.pdf", width = 3.5, height = 3.5)
+pdf("neuron_hygro_vs_nohygro_single_TF_correlation.pdf", width = 3.5, height = 3.5)
 PlotHexBin(neuron.cfs.1[neuron.hits.idx], neuron.cfs.2[neuron.hits.idx], n.bins = 30)
 dev.off()

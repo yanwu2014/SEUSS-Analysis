@@ -122,14 +122,14 @@ dev.off()
 plot.seed <- 32907098
 tsne.emb <- GetCellEmbeddings(r, reduction.type = "tsne")
 
-TF <- "KLF4"
+TF <- "NEUROD1"
 
 tf.groups <- as.character(clusters); names(tf.groups) <- names(clusters);
 tf.groups[names(tf.groups) %in% genotypes.list[[TF]]] <- TF
 tf.groups[!names(tf.groups) %in% genotypes.list[[TF]]] <- ""
 tf.groups <- factor(tf.groups)
 
-pdf(paste0(file.handle, "_tsne_plot", TF, ".pdf"), width = 3, height = 3)
+pdf(paste0(file.handle, "_tsne_plot_", TF, ".pdf"), width = 3, height = 3)
 PlotDims(tsne.emb, sample.groups = tf.groups, pt.size = 0.35, alpha.plot = 0.4, label.size = 0, do.label = T,
          show.legend = F, seed = plot.seed) + scale_color_manual(values = c("grey", "red")) + ggtitle(TF)
 dev.off()
