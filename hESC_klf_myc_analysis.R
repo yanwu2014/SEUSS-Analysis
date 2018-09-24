@@ -34,8 +34,8 @@ dim(myc.counts)
 library(perturbLM)
 library(swne)
 
-# file.handle <- "up-tf-klf"
-file.handle <- "up-tf-myc"
+file.handle <- "up-tf-klf"
+# file.handle <- "up-tf-myc"
 
 ## Load data
 coefs.df <- read.table(paste(file.handle, "regression.pvals.tsv", sep = "_"), sep = "\t", header = T, 
@@ -46,10 +46,21 @@ genotype.summary <- read.table(paste(file.handle, "summary.tsv", sep = "_"), sep
 diff.genes <- genotype.summary$n_diff_genes
 names(diff.genes) <- rownames(genotype.summary)
 
+if (file.handle == "up-tf-klf") {
+  klf.families <- c("Group1", "Group1", "Group1", "Group1", "Group1", "Group1", "Group2", "Group2", "Group2",
+                    "Group3", "Group3", "Group3", "Group3", "Group3", "Group3", "Group4", "Group4")
+  names(klf.families) <- c("KLF1", "KLF5", "KLF6", "KLF2", "KLF4", "KLF7", "KLF3", "KLF8", "KLF12", "KLF9",
+                           "KLF10", "KLF11", "KLF13", "KLF14", "KLF16", "KLF15", "KLF17")
+  klf.families <- factor(klf.families)
+  klf.order.df <- data.frame(diff.genes, family = klf.families[names(diff.genes)])
+  klf.order.df <- klf.order.df[order(klf.order.df$family),]
+  diff.genes <- diff.genes[rownames(klf.order.df)]
+}
+
 gg.bar <- ggBarplot(diff.genes, fill.color = "lightgrey")
-# pdf(paste(file.handle, "diff_genes_barplot.pdf", sep = "_"), width = 5.25, height = 3.5)
+pdf(paste(file.handle, "diff_genes_barplot.pdf", sep = "_"), width = 5.25, height = 3.5)
 gg.bar
-# dev.off()
+dev.off()
 
 ## TF effects on gene modules
 gene.module.mapping <- read.table("up-tf_module_names.txt", sep = "\t", header = T)
@@ -63,11 +74,12 @@ tf.modules.matrix <- CalcGeneModuleEffect(coefs.matrix, gene.modules.list,
 tf.modules.matrix <- tf.modules.matrix[apply(abs(tf.modules.matrix), 1, max) > 0.01,]
 tf.modules.matrix <- tf.modules.matrix[,names(diff.genes)]
 
+pdf(paste(file.handle, "heatmap_labels.pdf", sep = "_"), width = 6.0, height = 4.5)
+ggHeat(tf.modules.matrix, clustering = "row", x.lab.size = 12, y.lab.size = 12)
+dev.off()
+
 rownames(tf.modules.matrix) <- colnames(tf.modules.matrix) <- NULL
 gg.heat <- ggHeat(tf.modules.matrix, clustering = "row", x.lab.size = 12, y.lab.size = 12)
-# pdf(paste(file.handle, "gene_module_effects.pdf", sep = "_"), width = 6.5, height = 3)
-gg.heat
-# dev.off()
 
 library(grid)
 library(gridExtra)

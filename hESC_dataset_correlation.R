@@ -72,6 +72,7 @@ dev.off()
 #### Correlate Hygro and NoHygro vectors to determine reproducibility with shuffling ####
 library(perturbLM)
 library(swne)
+library(ggplot2)
 
 sample.1 <- "up-tf-neuron-hygro_regression.pvals.tsv"
 neuron.coefs.df.1 <- read.table(sample.1, sep = "\t", stringsAsFactors = F)
@@ -92,5 +93,37 @@ neuron.sig.idx <- union(rownames(subset(neuron.coefs.df.1, FDR < max.fdr)),
 neuron.hits.idx <- intersect(neuron.common.idx, neuron.sig.idx)
 
 pdf("neuron_hygro_vs_nohygro_single_TF_correlation.pdf", width = 3.5, height = 3.5)
+PlotHexBin(neuron.cfs.1[neuron.hits.idx], neuron.cfs.2[neuron.hits.idx], n.bins = 30) + 
+  xlim(min(neuron.cfs.2[neuron.hits.idx]), max(neuron.cfs.2[neuron.hits.idx]))
+dev.off()
+
+neuron.hits.df <- data.frame(cfs.1 = neuron.cfs.1[neuron.hits.idx], cfs.2 = neuron.cfs.2[neuron.hits.idx])
+lm.fit <- lm(cfs.2 ~ cfs.1, data = neuron.hits.df)
+print(lm.fit)
+
+#### Correlate Hygro and pluripotent medium TFs for viral prep reproducibility ####
+library(perturbLM)
+library(swne)
+
+sample.1 <- "up-tf-neuron-hygro_regression.pvals.tsv"
+neuron.coefs.df.1 <- read.table(sample.1, sep = "\t", stringsAsFactors = F)
+neuron.coefs.df.1 <- subset(neuron.coefs.df.1, !grepl(":", Group))
+neuron.cfs.1 <- neuron.coefs.df.1$cf
+rownames(neuron.coefs.df.1) <- names(neuron.cfs.1) <- interaction(neuron.coefs.df.1$Gene, neuron.coefs.df.1$Group, sep = "_")
+
+sample.2 <- "up-tf-stem_regression.pvals.tsv"
+neuron.coefs.df.2 <- read.table(sample.2, sep = "\t", stringsAsFactors = F)
+neuron.coefs.df.2 <- subset(neuron.coefs.df.2, !grepl(":", Group))
+neuron.cfs.2 <- neuron.coefs.df.2$cf
+rownames(neuron.coefs.df.2) <- names(neuron.cfs.2) <- interaction(neuron.coefs.df.2$Gene, neuron.coefs.df.2$Group, sep = "_")
+
+max.fdr <- 0.5
+neuron.common.idx <- intersect(names(neuron.cfs.1), names(neuron.cfs.2))
+neuron.sig.idx <- union(rownames(subset(neuron.coefs.df.1, FDR < max.fdr)), 
+                        rownames(subset(neuron.coefs.df.2, FDR < max.fdr)))
+neuron.hits.idx <- intersect(neuron.common.idx, neuron.sig.idx)
+
+pdf("neuron_hygro_vs_stem_TF_correlation.pdf", width = 3.5, height = 3.5)
 PlotHexBin(neuron.cfs.1[neuron.hits.idx], neuron.cfs.2[neuron.hits.idx], n.bins = 30)
 dev.off()
+

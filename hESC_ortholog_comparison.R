@@ -1,4 +1,4 @@
-#### Orthologous mouse TF enrichment in hPSC media. Generates Figure S3d
+#### Orthologous mouse TF enrichment in hPSC media. Generates Figure S4g
 library(perturbLM)
 library(swne)
 library(cellMapper)
@@ -45,7 +45,7 @@ ggHeat(tfs.corr, x.lab.size = 14, y.lab.size = 14)
 #### GSEA enrichment on ortholog target genesets ####
 ## Create mouse TF targets genesets
 mouse.targets.df <- read.table("mouse_tf_targets.txt", sep = "\t", header = T, stringsAsFactors = F)
-genotypes.keep <- c("Ascl1", "Cdx2", "Klf4", "Otx2", "Sox2", "Mef2c", "Myc", "Myod1", "Otx2")
+genotypes.keep <- c("Ascl1", "Cdx2", "Klf4", "Myc", "Myod1")
 
 mouse.targets.df <- subset(mouse.targets.df, TF %in% genotypes.keep & log.fc > 0.2 & FDR < 0.05)
 mouse.targets.df <- mouse.targets.df[order(mouse.targets.df$FDR),]
@@ -74,14 +74,21 @@ coefs.list <- lapply(names(human.genesets), function(g) {
   cf <- df$cf; names(cf) <- df$Gene;
   cf
 })
-names(coefs.list) <- names(human.genesets);
+names(coefs.list) <- names(human.genesets)
 
-genesets.enrich <- MultipleGSEAEnrich(coefs.list, human.genesets, n.rand = 1e5, n.cores = n.cores, power = 1)
+# genesets.enrich <- MultipleGSEAEnrich(coefs.list, human.genesets, n.rand = 1e5, n.cores = n.cores, power = 1)
 
-heat.df <- genesets.enrich
-heat.df$lp <- mapply(function(p, cf) -log10(p) * sign(cf), heat.df$p.val, heat.df$sscore)
-heat.lp <- UnflattenDataframe(heat.df, output.name = "lp", row.col = 'genesets', col.col = 'Group')
-heat.lp[is.na(heat.lp)] <- 0
+p.vals <- rep(0, length(coefs.list)); names(p.vals) <- names(coefs.list);
+for(tf in names(coefs.list)) {
+  pdf(paste0("up-tf-stem_", tf, "_ortholog_gsea.pdf"), width = 2.75, height = 2)
+  p.vals[[tf]] <- liger::gsea(coefs.list[[tf]], human.genesets[[tf]], n.rand = 1e5, mc.cores = n.cores)
+  dev.off()
+}
+
+# heat.df <- genesets.enrich
+# heat.df$lp <- mapply(function(p, cf) -log10(p) * sign(cf), heat.df$p.val, heat.df$sscore)
+# heat.lp <- UnflattenDataframe(heat.df, output.name = "lp", row.col = 'genesets', col.col = 'Group')
+# heat.lp[is.na(heat.lp)] <- 0
 
 # pdf("up-tf-stem_bulk_ortho_gsea_enrich.pdf", width = 5.5, height = 2.75)
 ggHeat(heat.lp, clustering = "both", x.lab.size = 12, y.lab.size = 12)
