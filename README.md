@@ -1,5 +1,5 @@
 # SEUSS-Analysis
-Code to analyze effects of gene overexpression on the transcriptome of human stem cells. The study by Parekh, Wu et al can be found here: []. Raw data files are at Gene Expression Omnibus with the accession: GSE107185 and processed data is available [here](https://bit.ly/2QVBnEc)
+Code to analyze effects of gene overexpression on the transcriptome of human stem cells. The study by Parekh, Wu et al, Cell Systems, 2018, can be found [here](https://www.sciencedirect.com/science/article/pii/S2405471218304332). Raw data files are at Gene Expression Omnibus with the accession: GSE107185 and processed data is available [here](https://bit.ly/2QVBnEc)
 
 ## Clustering and regression analysis
 Both clustering and regression analysis can take quite a while (8+ hours for large datasets), and so are best run from the command line. You will need the [perturbLM](www.github.com/yanwu2014/perturbLM), [swne](www.github.com/yanwu2014/swne), and [cellMapper](https://github.com/yanwu2014/cellMapper) packages to run this analysis. 
